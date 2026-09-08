@@ -3,8 +3,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Paper directory
+# Paper directory (uncomment if paper should be excluded from repo)
 paper/
+
+# LaTeX build artifacts (if paper directory is tracked)
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
 
 # Environments / distribution
 .env
@@ -12,7 +23,20 @@ paper/
 env/
 venv/
 ENV/
+build/
+dist/
+*.egg-info/
+
+# Testing & Tool configs
+.pytest_cache/
+.coverage
+htmlcov/
+.mplconfig/
+
+# Test data artifacts
+data/TEST_*.csv
 
 # OS generated files
 .DS_Store
 Thumbs.db
+

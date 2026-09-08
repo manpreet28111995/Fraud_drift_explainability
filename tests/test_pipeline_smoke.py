@@ -40,13 +40,37 @@ def _configure_for_speed():
 
 
 def test_full_pipeline_runs_on_synthetic_data(tmp_path=None):
+    import tempfile
+    import shutil
+
     config = _configure_for_speed()
+
+    # Isolate test outputs and data so production results in data/ and outputs/ are never overwritten
+    temp_dir_obj = None
+    if tmp_path is None:
+        temp_dir_obj = tempfile.TemporaryDirectory()
+        base_test_dir = temp_dir_obj.name
+    else:
+        base_test_dir = str(tmp_path)
+
+    test_tables_dir = os.path.join(base_test_dir, "tables")
+    test_figures_dir = os.path.join(base_test_dir, "figures")
+    os.makedirs(test_tables_dir, exist_ok=True)
+    os.makedirs(test_figures_dir, exist_ok=True)
+
+    orig_tables_dir = config.TABLES_DIR
+    orig_figures_dir = config.FIGURES_DIR
+    orig_tx_file = config.TRANSACTION_FILE
+    orig_id_file = config.IDENTITY_FILE
+
+    config.TABLES_DIR = test_tables_dir
+    config.FIGURES_DIR = test_figures_dir
 
     from scripts.make_synthetic_data import generate_synthetic_ieee_cis
     tx, identity = generate_synthetic_ieee_cis(n_rows=20000, n_days=182, seed=42)
 
-    tx_path = os.path.join(config.DATA_DIR, "TEST_transaction.csv")
-    id_path = os.path.join(config.DATA_DIR, "TEST_identity.csv")
+    tx_path = os.path.join(base_test_dir, "TEST_transaction.csv")
+    id_path = os.path.join(base_test_dir, "TEST_identity.csv")
     tx.to_csv(tx_path, index=False)
     identity.to_csv(id_path, index=False)
     config.TRANSACTION_FILE = tx_path
@@ -58,55 +82,60 @@ def test_full_pipeline_runs_on_synthetic_data(tmp_path=None):
     from src.models import explainers, model_utils
     from src.pipeline import analysis, experiment_runner
 
-    df = data_loader.load_raw_data()
-    assert df["isFraud"].isin([0, 1]).all()
-    assert (df["TransactionDT"].diff().dropna() >= 0).all(), "data must remain time-sorted"
+    try:
+        df = data_loader.load_raw_data()
+        assert df["isFraud"].isin([0, 1]).all()
+        assert (df["TransactionDT"].diff().dropna() >= 0).all(), "data must remain time-sorted"
 
-    windows = data_loader.create_sliding_windows(df)
-    assert len(windows) >= 3
+        windows = data_loader.create_sliding_windows(df)
+        assert len(windows) >= 3
 
-    spec = fe.build_feature_spec(df)
-    assert len(spec.numeric_cols) > 0 and len(spec.categorical_cols) > 0
+        spec = fe.build_feature_spec(df)
+        assert len(spec.numeric_cols) > 0 and len(spec.categorical_cols) > 0
 
-    train_df, test_df = data_loader.split_train_test_within_window(windows[0].df)
-    X_train, y_train = fe.transform(train_df, spec)
-    X_test, y_test = fe.transform(test_df, spec)
-    assert list(X_train.columns) == list(X_test.columns)
+        train_df, test_df = data_loader.split_train_test_within_window(windows[0].df)
+        X_train, y_train = fe.transform(train_df, spec)
+        X_test, y_test = fe.transform(test_df, spec)
+        assert list(X_train.columns) == list(X_test.columns)
 
-    model = model_utils.train_model(X_train, y_train, seed=0, categorical_cols=spec.categorical_cols)
-    metrics = model_utils.evaluate_model(model, X_test, y_test)
-    assert 0.0 <= metrics["roc_auc"] <= 1.0
+        model = model_utils.train_model(X_train, y_train, seed=0, categorical_cols=spec.categorical_cols)
+        metrics = model_utils.evaluate_model(model, X_test, y_test)
+        assert 0.0 <= metrics["roc_auc"] <= 1.0
 
-    # DataFrame vs ndarray predictions must match (required for LIME's predict_fn contract)
-    p1 = model.predict_proba(X_test)[:20]
-    p2 = model.predict_proba(X_test.values)[:20]
-    assert np.allclose(p1, p2)
+        # DataFrame vs ndarray predictions must match (required for LIME's predict_fn contract)
+        p1 = model.predict_proba(X_test)[:20]
+        p2 = model.predict_proba(X_test.values)[:20]
+        assert np.allclose(p1, p2)
 
-    shap_imp = explainers.compute_shap_global_importance(model, X_test, seed=0)
-    assert (shap_imp >= 0).all()
-    top_feats = shap_imp.sort_values(ascending=False).head(10).index.tolist()
+        shap_imp = explainers.compute_shap_global_importance(model, X_test, seed=0)
+        assert (shap_imp >= 0).all()
+        top_feats = shap_imp.sort_values(ascending=False).head(10).index.tolist()
 
-    lime_res = explainers.compute_lime_explanations(
-        model, X_test, top_feats, spec.categorical_cols, seed=0
-    )
-    assert 0.0 <= lime_res["stability_jaccard"] <= 1.0
-    assert set(lime_res["importance"].index) == set(top_feats)
+        lime_res = explainers.compute_lime_explanations(
+            model, X_test, top_feats, spec.categorical_cols, seed=0
+        )
+        assert 0.0 <= lime_res["stability_jaccard"] <= 1.0
+        assert set(lime_res["importance"].index) == set(top_feats)
 
-    report = drift_metrics.ranking_drift_report(shap_imp, shap_imp)
-    assert abs(report["spearman_rho"] - 1.0) < 1e-9, "a ranking compared to itself must be perfectly correlated"
+        report = drift_metrics.ranking_drift_report(shap_imp, shap_imp)
+        assert abs(report["spearman_rho"] - 1.0) < 1e-9, "a ranking compared to itself must be perfectly correlated"
 
-    combined = experiment_runner.run_all_seeds(config.SEEDS)
-    assert set(combined["regime"].unique()) == {"frozen", "retrained"}
-    assert combined["seed"].nunique() == len(config.SEEDS)
-    assert not combined["perf_roc_auc"].isna().all()
+        combined = experiment_runner.run_all_seeds(config.SEEDS)
+        assert set(combined["regime"].unique()) == {"frozen", "retrained"}
+        assert combined["seed"].nunique() == len(config.SEEDS)
+        assert not combined["perf_roc_auc"].isna().all()
 
-    per_seed, summary_df = analysis.run_full_analysis()
-    assert len(per_seed) == len(config.SEEDS)
-    for f in ["performance_decay.png", "explanation_drift.png", "lead_time_distribution.png"]:
-        assert os.path.exists(os.path.join(config.FIGURES_DIR, f))
-
-    os.remove(tx_path)
-    os.remove(id_path)
+        per_seed, summary_df = analysis.run_full_analysis()
+        assert len(per_seed) == len(config.SEEDS)
+        for f in ["performance_decay.png", "explanation_drift.png", "lead_time_distribution.png"]:
+            assert os.path.exists(os.path.join(config.FIGURES_DIR, f))
+    finally:
+        config.TABLES_DIR = orig_tables_dir
+        config.FIGURES_DIR = orig_figures_dir
+        config.TRANSACTION_FILE = orig_tx_file
+        config.IDENTITY_FILE = orig_id_file
+        if temp_dir_obj is not None:
+            temp_dir_obj.cleanup()
     print("\nSMOKE TEST PASSED -- pipeline is wired correctly end-to-end.")
 
 

@@ -43,8 +43,14 @@ extended, so all originally-reported numbers remain reproducible alongside
 the new, more robust versions.
 """
 
+import inspect
 import logging
 import os
+
+# Set writable MPLCONFIGDIR before importing matplotlib if not set or not writable
+if "MPLCONFIGDIR" not in os.environ or not os.access(os.environ["MPLCONFIGDIR"], os.W_OK):
+    os.environ["MPLCONFIGDIR"] = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".mplconfig")
+    os.makedirs(os.environ["MPLCONFIGDIR"], exist_ok=True)
 
 import matplotlib
 matplotlib.use("Agg")
@@ -58,6 +64,8 @@ from src.drift import drift_metrics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+_BOXPLOT_KWARG = "tick_labels" if "tick_labels" in inspect.signature(plt.Axes.boxplot).parameters else "labels"
 
 
 def load_results(path: str = None) -> pd.DataFrame:
@@ -374,7 +382,7 @@ def plot_lead_time_distribution(per_seed: pd.DataFrame, outpath: str):
     data = [per_seed["shap_lead_time_windows"].dropna().values,
             per_seed["lime_lead_time_windows"].dropna().values]
     labels = [f"SHAP (n={len(data[0])})", f"LIME (n={len(data[1])})"]
-    bp = ax.boxplot([d if len(d) else [np.nan] for d in data], labels=labels, showmeans=True)
+    bp = ax.boxplot([d if len(d) else [np.nan] for d in data], showmeans=True, **{_BOXPLOT_KWARG: labels})
     ax.axhline(0, color="gray", linestyle="--", linewidth=1)
     ax.set_ylabel("Lead time (windows) = perf-crossing - explanation-crossing\n(positive = explanation warns earlier)")
     ax.set_title(f"Early-warning lead time across {len(per_seed)} seeds")
@@ -444,7 +452,7 @@ def plot_relative_lead_time_distribution(per_seed: pd.DataFrame, outpath: str, f
     cols = [f"{name}_relcross_f{fraction}_lead_time" for name in ("shap", "lime", "wasserstein")]
     data = [per_seed[c].dropna().values for c in cols]
     labels = [f"{name} (n={len(d)})" for name, d in zip(("SHAP", "LIME", "Wasserstein"), data)]
-    ax.boxplot([d if len(d) else [np.nan] for d in data], labels=labels, showmeans=True)
+    ax.boxplot([d if len(d) else [np.nan] for d in data], showmeans=True, **{_BOXPLOT_KWARG: labels})
     ax.axhline(0, color="gray", linestyle="--", linewidth=1)
     ax.set_ylabel("Lead time (windows) = perf-crossing - signal-crossing\n(positive = signal warns earlier)")
     ax.set_title(f"Relative-threshold (fraction={fraction}) early-warning lead time, {len(per_seed)} seeds")
@@ -466,7 +474,7 @@ def plot_regime_stability(df: pd.DataFrame, outpath: str):
                                ["SHAP rank correlation to baseline", "LIME rank correlation to baseline"]):
         data = [d.loc[d["regime"] == "frozen", col].values,
                 d.loc[d["regime"] == "retrained", col].values]
-        ax.boxplot(data, labels=["frozen", "retrained"], showmeans=True)
+        ax.boxplot(data, showmeans=True, **{_BOXPLOT_KWARG: ["frozen", "retrained"]})
         ax.set_title(title, fontsize=10)
         ax.set_ylabel("Spearman rho vs. baseline window")
         ax.grid(alpha=0.3, axis="y")

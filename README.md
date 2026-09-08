@@ -1,5 +1,9 @@
 # Temporal Faithfulness of Explanations Under Concept Drift in Streaming Fraud
 
+[![CI](https://github.com/manpreet-singh/Fraud_drift_explainability/actions/workflows/ci.yml/badge.svg)](https://github.com/manpreet-singh/Fraud_drift_explainability/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
 Experiment code for the study: does SHAP (global) / LIME (local) explanation
 drift over time act as an **early-warning signal** for fraud-model decay,
 *before* AUC/F1 visibly drop? Dataset: [IEEE-CIS Fraud Detection](https://www.kaggle.com/c/ieee-fraud-detection)
@@ -46,6 +50,7 @@ All of this is orchestrated by `main.py`; see `outputs/tables/` and
 ## 2. Repository layout
 
 ```
+.github/workflows/ci.yml      GitHub Actions CI (multi-version matrix smoke tests)
 src/
 ├── config.py                 All tunable parameters (seeds, window size, model
 │                              hyperparameters, SHAP/LIME sample sizes, etc.)
@@ -66,8 +71,13 @@ src/
     └── analysis.py           Lead-lag aggregation, paired t-test, figures.
 scripts/
 └── make_synthetic_data.py    Generates schema-matched synthetic dataset.
+tests/
+└── test_pipeline_smoke.py    End-to-end smoke test on synthetic data.
 main.py                       Single CLI entry point.
-tests/test_pipeline_smoke.py  End-to-end smoke test on synthetic data.
+CITATION.cff                  Citation metadata in CFF format.
+LICENSE                       MIT License.
+pyproject.toml                Python packaging and tool configuration.
+requirements.txt              Pinned minimum dependencies.
 ```
 
 ## 3. Setup
@@ -76,6 +86,8 @@ tests/test_pipeline_smoke.py  End-to-end smoke test on synthetic data.
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+# or install in editable mode:
+pip install -e .
 ```
 
 **Apple Silicon (M3 Pro) note**: LightGBM's macOS wheel needs the OpenMP
@@ -350,3 +362,23 @@ the very first 14 days as the reference point.
   prefix in `experiment_runner._flatten_row`.
 - Add a drift metric: add a function to `drift_metrics.py` and call it
   alongside `ranking_drift_report` in `experiment_runner.run_single_seed`.
+
+## 10. Citation
+
+If you use this codebase or benchmark in your research, please cite:
+
+```bibtex
+@article{singh2026temporal,
+  title={Temporal Faithfulness of Explanations Under Concept Drift in Streaming Fraud Detection},
+  author={Singh, Manpreet and Zeeshan, Muhammad and Jajoo, Yash and Singh, Bikramjit and Singh, Anant and Joshi, Rahul},
+  year={2026},
+  url={https://github.com/manpreet-singh/Fraud_drift_explainability}
+}
+```
+
+Or reference metadata in [`CITATION.cff`](CITATION.cff).
+
+## 11. License
+
+This project is licensed under the MIT License - see the [`LICENSE`](LICENSE) file for details.
+

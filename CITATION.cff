@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software or benchmark, please cite it as below."
+title: "Temporal Faithfulness of Explanations Under Concept Drift in Streaming Fraud Detection"
+authors:
+  - family-names: "Singh"
+    given-names: "Manpreet"
+  - family-names: "Zeeshan"
+    given-names: "Muhammad"
+  - family-names: "Jajoo"
+    given-names: "Yash"
+  - family-names: "Singh"
+    given-names: "Bikramjit"
+  - family-names: "Singh"
+    given-names: "Anant"
+  - family-names: "Joshi"
+    given-names: "Rahul"
+date-released: 2026-09-08
+url: "https://github.com/manpreet-singh/Fraud_drift_explainability"
+keywords:
+  - "concept drift"
+  - "explainable AI"
+  - "SHAP"
+  - "LIME"
+  - "fraud detection"
+  - "streaming machine learning"
+  - "temporal faithfulness"
+license: "MIT"
