@@ -370,7 +370,7 @@ If you use this codebase or benchmark in your research, please cite:
 ```bibtex
 @article{singh2026temporal,
   title={Temporal Faithfulness of Explanations Under Concept Drift in Streaming Fraud Detection},
-  author={Singh, Manpreet and Zeeshan, Muhammad and Jajoo, Yash and Singh, Bikramjit and Singh, Anant and Joshi, Rahul},
+  author={Singh, Manpreet and Zeeshan, Muhammad and Jajoo, Yash and Ganguly, Deboleena and Singh, Anant and Joshi, Rahul},
   year={2026},
   url={https://github.com/manpreet-singh/Fraud_drift_explainability}
 }
